@@ -13,14 +13,14 @@ interface CompetitionSearchProps {
 export default function CompetitionSearch({ onSearch }: CompetitionSearchProps) {
   const [, setLocation] = useLocation();
   const [year, setYear] = useState<string>(new Date().getFullYear().toString());
-  const [location, setLocationInput] = useState("");
+  const [locationInput, setLocationInput] = useState("");
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
 
   const handleSearch = () => {
     const yearNum = parseInt(year);
-    const trimmedLocation = location.trim();
+    const trimmedLocation = locationInput.trim();
     
     if (onSearch) {
       onSearch(yearNum, trimmedLocation || undefined);
@@ -66,7 +66,7 @@ export default function CompetitionSearch({ onSearch }: CompetitionSearchProps) 
             id="locationInput"
             type="text"
             placeholder="e.g., California, Ontario"
-            value={location}
+            value={locationInput}
             onChange={(e) => setLocationInput(e.target.value)}
             onKeyPress={handleKeyPress}
           />
