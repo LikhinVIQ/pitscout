@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Link } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -32,10 +32,12 @@ function App() {
           <header className="bg-frc-blue text-white shadow-lg sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center h-16">
-                <div className="flex items-center space-x-3">
-                  <Bot className="h-8 w-8" />
-                  <h1 className="text-xl font-bold">FRC Pit Map</h1>
-                </div>
+                <Link href="/">
+                  <div className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity">
+                    <Bot className="h-8 w-8" />
+                    <h1 className="text-xl font-bold">FRC Pit Map</h1>
+                  </div>
+                </Link>
               </div>
             </div>
           </header>
