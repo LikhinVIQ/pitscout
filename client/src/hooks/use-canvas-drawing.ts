@@ -1,5 +1,5 @@
 import { useRef, useCallback } from "react";
-import { generateId } from "@/lib/canvas-utils";
+import { generateId, isPointInElement, snapToGrid } from "@/lib/canvas-utils";
 import type { CanvasData, DrawingElement } from "@shared/schema";
 
 interface UseCanvasDrawingProps {
@@ -16,6 +16,9 @@ export function useCanvasDrawing({
   const isDrawing = useRef(false);
   const currentElement = useRef<DrawingElement | null>(null);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
+  const isDragging = useRef(false);
+  const dragElement = useRef<DrawingElement | null>(null);
+  const dragOffset = useRef<{ x: number; y: number } | null>(null);
 
   const getCanvasCoordinates = useCallback((event: MouseEvent, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
@@ -130,6 +133,26 @@ export function useCanvasDrawing({
     if (!canvas) return;
 
     const coords = getCanvasCoordinates(event, canvas);
+    
+    // Check if we're clicking on an existing pit element for dragging
+    if (selectedTool === 'pit') {
+      const clickedElement = canvasData.elements
+        .slice()
+        .reverse() // Check from top to bottom
+        .find(element => element.type === 'pit' && isPointInElement(coords.x, coords.y, element));
+        
+      if (clickedElement) {
+        // Start dragging existing pit
+        isDragging.current = true;
+        dragElement.current = clickedElement;
+        dragOffset.current = {
+          x: coords.x - clickedElement.startX,
+          y: coords.y - clickedElement.startY,
+        };
+        return;
+      }
+    }
+    
     isDrawing.current = true;
     lastPoint.current = coords;
 
@@ -148,17 +171,26 @@ export function useCanvasDrawing({
         break;
         
       case 'pit':
-        currentElement.current = {
+        // Create a 10x10 pit square immediately
+        const pitElement: DrawingElement = {
           id: generateId(),
           type: 'pit',
-          startX: coords.x,
-          startY: coords.y,
-          width: 0,
-          height: 0,
+          startX: snapToGrid(coords.x - 25), // Center the pit on click
+          startY: snapToGrid(coords.y - 25),
+          width: 50,
+          height: 50,
           color: '#1976D2',
           strokeWidth: 2,
         };
-        break;
+        
+        onCanvasDataChange({
+          ...canvasData,
+          elements: [...canvasData.elements, pitElement],
+        });
+        
+        // Don't set currentElement since pit is created immediately
+        isDrawing.current = false;
+        return;
         
       case 'text':
         const text = prompt('Enter text:');
@@ -201,12 +233,30 @@ export function useCanvasDrawing({
   }, [selectedTool, canvasData, onCanvasDataChange, getCanvasCoordinates]);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!isDrawing.current || !currentElement.current) return;
-    
     const canvas = event.target as HTMLCanvasElement;
     if (!canvas) return;
 
     const coords = getCanvasCoordinates(event, canvas);
+    
+    // Handle dragging pit elements
+    if (isDragging.current && dragElement.current && dragOffset.current) {
+      const newX = snapToGrid(coords.x - dragOffset.current.x);
+      const newY = snapToGrid(coords.y - dragOffset.current.y);
+      
+      const updatedElements = canvasData.elements.map(element => 
+        element.id === dragElement.current!.id 
+          ? { ...element, startX: newX, startY: newY }
+          : element
+      );
+      
+      onCanvasDataChange({
+        ...canvasData,
+        elements: updatedElements,
+      });
+      return;
+    }
+    
+    if (!isDrawing.current || !currentElement.current) return;
 
     switch (selectedTool) {
       case 'line':
@@ -239,6 +289,14 @@ export function useCanvasDrawing({
   }, [isDrawing, selectedTool, canvasData, onCanvasDataChange, getCanvasCoordinates]);
 
   const handleMouseUp = useCallback(() => {
+    // Handle drag completion
+    if (isDragging.current) {
+      isDragging.current = false;
+      dragElement.current = null;
+      dragOffset.current = null;
+      return;
+    }
+    
     if (!isDrawing.current) return;
     
     isDrawing.current = false;
