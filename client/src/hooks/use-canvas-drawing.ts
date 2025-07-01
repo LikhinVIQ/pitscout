@@ -185,8 +185,8 @@ export function useCanvasDrawing({
         const pitElement: DrawingElement = {
           id: generateId(),
           type: 'pit',
-          startX: snapToGrid(coords.x - 25), // Center the pit on click
-          startY: snapToGrid(coords.y - 25),
+          startX: coords.x - 25, // Center the pit on click
+          startY: coords.y - 25,
           width: 50,
           height: 50,
           color: '#1976D2',
@@ -250,8 +250,8 @@ export function useCanvasDrawing({
     
     // Handle dragging elements
     if (isDragging.current && dragElement.current && dragOffset.current) {
-      const newX = snapToGrid(coords.x - dragOffset.current.x);
-      const newY = snapToGrid(coords.y - dragOffset.current.y);
+      const newX = coords.x - dragOffset.current.x;
+      const newY = coords.y - dragOffset.current.y;
       
       const updatedElements = canvasData.elements.map(element => {
         if (element.id === dragElement.current!.id) {
@@ -286,8 +286,20 @@ export function useCanvasDrawing({
 
     switch (selectedTool) {
       case 'line':
-        currentElement.current.endX = coords.x;
-        currentElement.current.endY = coords.y;
+        // Snap line to horizontal or vertical direction
+        const deltaX = coords.x - currentElement.current.startX;
+        const deltaY = coords.y - currentElement.current.startY;
+        
+        // Determine if line should be horizontal or vertical based on which direction is more dominant
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          // Make horizontal line
+          currentElement.current.endX = coords.x;
+          currentElement.current.endY = currentElement.current.startY;
+        } else {
+          // Make vertical line
+          currentElement.current.endX = currentElement.current.startX;
+          currentElement.current.endY = coords.y;
+        }
         break;
         
       case 'pit':
