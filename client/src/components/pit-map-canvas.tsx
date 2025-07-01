@@ -8,13 +8,15 @@ interface PitMapCanvasProps {
   onCanvasDataChange: (data: CanvasData) => void;
   selectedTool: 'line' | 'pit' | 'text' | 'eraser' | 'grab';
   teamAssignments: TeamAssignment[];
+  onTeamAssignment?: (teamNumber: number, pitElement: any) => void;
 }
 
 export default function PitMapCanvas({ 
   canvasData, 
   onCanvasDataChange, 
   selectedTool, 
-  teamAssignments 
+  teamAssignments,
+  onTeamAssignment
 }: PitMapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,6 +117,75 @@ export default function PitMapCanvas({
     handleTouchEnd(e.nativeEvent);
   };
 
+  // Handle drag and drop for team assignment
+  const handleDragOver = (e: React.DragEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    
+    try {
+      const teamData = JSON.parse(e.dataTransfer.getData('application/json'));
+      const canvas = canvasRef.current;
+      if (!canvas || !teamData.teamNumber) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const dropX = (e.clientX - rect.left) * scaleX;
+      const dropY = (e.clientY - rect.top) * scaleY;
+
+      // Find pit element at drop location
+      const pitElement = canvasData.elements
+        .slice()
+        .reverse()
+        .find(element => {
+          if (element.type !== 'pit') return false;
+          return (
+            dropX >= element.startX &&
+            dropX <= element.startX + (element.width || 0) &&
+            dropY >= element.startY &&
+            dropY <= element.startY + (element.height || 0)
+          );
+        });
+
+      if (pitElement) {
+        // Update the pit element with team assignment
+        const updatedElements = canvasData.elements.map(element => 
+          element.id === pitElement.id 
+            ? { ...element, teamNumber: teamData.teamNumber }
+            : element
+        );
+        
+        onCanvasDataChange({
+          ...canvasData,
+          elements: updatedElements,
+        });
+
+        // Create team assignment record (for pit map page to track)
+        const newAssignment = {
+          id: Date.now(), // Simple ID generation
+          teamNumber: teamData.teamNumber,
+          pitLocation: `Pit ${teamData.teamNumber}`,
+          x: pitElement.startX,
+          y: pitElement.startY,
+          pitMapId: 0, // Will be set when pit map is saved
+          createdAt: new Date(),
+        };
+
+        // Notify parent component of team assignment
+        if (onTeamAssignment) {
+          onTeamAssignment(teamData.teamNumber, pitElement);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling team drop:', error);
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -130,6 +201,8 @@ export default function PitMapCanvas({
         onTouchStart={handleCanvasTouchStart}
         onTouchMove={handleCanvasTouchMove}
         onTouchEnd={handleCanvasTouchEnd}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       />
       
       {/* Canvas Overlay for UI Elements */}

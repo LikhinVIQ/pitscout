@@ -136,6 +136,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get teams for a specific competition
+  app.get("/api/competitions/:key/teams", async (req, res) => {
+    try {
+      const { key } = req.params;
+      
+      // Fetch teams from TBA API
+      const teams = await fetchFromTBA(`/event/${key}/teams/simple`);
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching teams for competition:", error);
+      res.status(500).json({ message: "Failed to fetch teams" });
+    }
+  });
+
   // Get all pit maps
   app.get("/api/pit-maps", async (req, res) => {
     try {

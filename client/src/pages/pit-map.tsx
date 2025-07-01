@@ -38,6 +38,13 @@ export default function PitMapPage() {
     enabled: !!competitionKey,
   });
 
+  // Fetch teams for the competition
+  const { data: teams, isLoading: loadingTeams } = useQuery<{ team_number: number; nickname?: string; name: string }[]>({
+    queryKey: ['/api/competitions', competitionKey, 'teams'],
+    queryFn: () => fetch(`/api/competitions/${competitionKey}/teams`).then(res => res.json()),
+    enabled: !!competitionKey,
+  });
+
   // Save pit map mutation
   const savePitMapMutation = useMutation({
     mutationFn: async (data: { name: string; competitionKey: string; competitionName: string }) => {
@@ -135,6 +142,26 @@ export default function PitMapPage() {
   // Remove team assignment
   const handleRemoveTeamAssignment = (assignmentId: number) => {
     setTeamAssignments(prev => prev.filter(assignment => assignment.id !== assignmentId));
+  };
+
+  // Handle team assignment from drag and drop
+  const handleTeamAssignment = (teamNumber: number, pitElement: any) => {
+    const newAssignment: TeamAssignment = {
+      id: Date.now(),
+      teamNumber,
+      pitLocation: `Pit ${teamNumber}`,
+      x: pitElement.startX,
+      y: pitElement.startY,
+      pitMapId: currentPitMapId || 0,
+      createdAt: new Date(),
+    };
+    
+    setTeamAssignments(prev => [...prev, newAssignment]);
+    
+    toast({
+      title: "Team assigned",
+      description: `Team ${teamNumber} assigned to pit.`,
+    });
   };
 
   // Save pit map
@@ -237,9 +264,59 @@ export default function PitMapPage() {
             onCanvasDataChange={setCanvasData}
             selectedTool={selectedTool}
             teamAssignments={teamAssignments}
+            onTeamAssignment={handleTeamAssignment}
           />
         </CardContent>
       </Card>
+
+      {/* Team List */}
+      {teams && teams.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Numbers</CardTitle>
+            <p className="text-sm text-gray-600">
+              Drag team numbers to pits on the map above
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2 max-h-60 overflow-y-auto">
+              {teams.map((team) => {
+                const isAssigned = teamAssignments.some(assignment => assignment.teamNumber === team.team_number);
+                return (
+                  <div
+                    key={team.team_number}
+                    draggable={!isAssigned}
+                    onDragStart={(e) => {
+                      if (!isAssigned) {
+                        e.dataTransfer.setData('application/json', JSON.stringify({
+                          teamNumber: team.team_number,
+                          teamName: team.nickname || team.name
+                        }));
+                        e.dataTransfer.effectAllowed = 'move';
+                      }
+                    }}
+                    className={`
+                      px-3 py-2 text-sm font-medium rounded-md border text-center cursor-move transition-colors
+                      ${isAssigned 
+                        ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed' 
+                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                      }
+                    `}
+                    title={isAssigned ? 'Already assigned to a pit' : `${team.nickname || team.name} - Drag to assign to a pit`}
+                  >
+                    {team.team_number}
+                  </div>
+                );
+              })}
+            </div>
+            {loadingTeams && (
+              <div className="flex justify-center py-4">
+                <div className="text-sm text-gray-500">Loading teams...</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Team Assignment Panel */}
       <Card>
