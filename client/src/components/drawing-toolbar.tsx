@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Minus, Square, Type, Eraser, Trash2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Minus, Square, Type, Eraser, Hand, Trash2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import type { CanvasData } from "@shared/schema";
 
 interface DrawingToolbarProps {
-  selectedTool: 'line' | 'pit' | 'text' | 'eraser';
-  onToolChange: (tool: 'line' | 'pit' | 'text' | 'eraser') => void;
+  selectedTool: 'line' | 'pit' | 'text' | 'eraser' | 'grab';
+  onToolChange: (tool: 'line' | 'pit' | 'text' | 'eraser' | 'grab') => void;
   onClearCanvas: () => void;
   canvasData: CanvasData;
   onCanvasDataChange: (data: CanvasData) => void;
@@ -19,6 +19,7 @@ export default function DrawingToolbar({
   onCanvasDataChange
 }: DrawingToolbarProps) {
   const tools = [
+    { id: 'grab' as const, icon: Hand, label: 'Grab' },
     { id: 'line' as const, icon: Minus, label: 'Line' },
     { id: 'pit' as const, icon: Square, label: 'Pit' },
     { id: 'text' as const, icon: Type, label: 'Text' },

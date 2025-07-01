@@ -19,7 +19,7 @@ export default function PitMapPage() {
   const queryClient = useQueryClient();
   const competitionKey = params.competitionKey;
 
-  const [selectedTool, setSelectedTool] = useState<'line' | 'pit' | 'text' | 'eraser'>('line');
+  const [selectedTool, setSelectedTool] = useState<'line' | 'pit' | 'text' | 'eraser' | 'grab'>('grab');
   const [canvasData, setCanvasData] = useState<CanvasData>({
     elements: [],
     zoom: 1,

@@ -6,7 +6,7 @@ import type { CanvasData, TeamAssignment } from "@shared/schema";
 interface PitMapCanvasProps {
   canvasData: CanvasData;
   onCanvasDataChange: (data: CanvasData) => void;
-  selectedTool: 'line' | 'pit' | 'text' | 'eraser';
+  selectedTool: 'line' | 'pit' | 'text' | 'eraser' | 'grab';
   teamAssignments: TeamAssignment[];
 }
 
@@ -82,10 +82,37 @@ export default function PitMapCanvas({
       case 'text':
         return 'cursor-text';
       case 'eraser':
+        return 'cursor-not-allowed';
+      case 'grab':
         return 'cursor-grab';
       default:
         return 'cursor-default';
     }
+  };
+
+  // Event wrapper functions to handle React event types
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    handleMouseDown(e.nativeEvent);
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    handleMouseMove(e.nativeEvent);
+  };
+
+  const handleCanvasMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    handleMouseUp();
+  };
+
+  const handleCanvasTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    handleTouchStart(e.nativeEvent);
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    handleTouchMove(e.nativeEvent);
+  };
+
+  const handleCanvasTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    handleTouchEnd(e.nativeEvent);
   };
 
   return (
@@ -97,12 +124,12 @@ export default function PitMapCanvas({
       <canvas
         ref={canvasRef}
         className="absolute top-0 left-0 w-full h-full touch-none"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleCanvasMouseDown}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseUp={handleCanvasMouseUp}
+        onTouchStart={handleCanvasTouchStart}
+        onTouchMove={handleCanvasTouchMove}
+        onTouchEnd={handleCanvasTouchEnd}
       />
       
       {/* Canvas Overlay for UI Elements */}

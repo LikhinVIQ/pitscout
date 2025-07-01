@@ -5,7 +5,7 @@ import type { CanvasData, DrawingElement } from "@shared/schema";
 interface UseCanvasDrawingProps {
   canvasData: CanvasData;
   onCanvasDataChange: (data: CanvasData) => void;
-  selectedTool: 'line' | 'pit' | 'text' | 'eraser';
+  selectedTool: 'line' | 'pit' | 'text' | 'eraser' | 'grab';
 }
 
 export function useCanvasDrawing({ 
@@ -134,15 +134,20 @@ export function useCanvasDrawing({
 
     const coords = getCanvasCoordinates(event, canvas);
     
-    // Check if we're clicking on an existing pit element for dragging
-    if (selectedTool === 'pit') {
+    // Check if we're clicking on an existing element for dragging (pit tool or grab tool)
+    if (selectedTool === 'pit' || selectedTool === 'grab') {
       const clickedElement = canvasData.elements
         .slice()
         .reverse() // Check from top to bottom
-        .find(element => element.type === 'pit' && isPointInElement(coords.x, coords.y, element));
+        .find(element => {
+          // For pit tool, only allow dragging pits; for grab tool, allow any element
+          return selectedTool === 'grab' 
+            ? isPointInElement(coords.x, coords.y, element)
+            : element.type === 'pit' && isPointInElement(coords.x, coords.y, element);
+        });
         
       if (clickedElement) {
-        // Start dragging existing pit
+        // Start dragging existing element
         isDragging.current = true;
         dragElement.current = clickedElement;
         dragOffset.current = {
@@ -151,6 +156,11 @@ export function useCanvasDrawing({
         };
         return;
       }
+    }
+    
+    // If using grab tool and no element clicked, do nothing
+    if (selectedTool === 'grab') {
+      return;
     }
     
     isDrawing.current = true;
@@ -238,16 +248,32 @@ export function useCanvasDrawing({
 
     const coords = getCanvasCoordinates(event, canvas);
     
-    // Handle dragging pit elements
+    // Handle dragging elements
     if (isDragging.current && dragElement.current && dragOffset.current) {
       const newX = snapToGrid(coords.x - dragOffset.current.x);
       const newY = snapToGrid(coords.y - dragOffset.current.y);
       
-      const updatedElements = canvasData.elements.map(element => 
-        element.id === dragElement.current!.id 
-          ? { ...element, startX: newX, startY: newY }
-          : element
-      );
+      const updatedElements = canvasData.elements.map(element => {
+        if (element.id === dragElement.current!.id) {
+          const deltaX = newX - element.startX;
+          const deltaY = newY - element.startY;
+          
+          // Handle different element types for dragging
+          if (element.type === 'line') {
+            return {
+              ...element,
+              startX: newX,
+              startY: newY,
+              endX: (element.endX || element.startX) + deltaX,
+              endY: (element.endY || element.startY) + deltaY,
+            };
+          } else {
+            // Handle pit, text, and other elements
+            return { ...element, startX: newX, startY: newY };
+          }
+        }
+        return element;
+      });
       
       onCanvasDataChange({
         ...canvasData,
