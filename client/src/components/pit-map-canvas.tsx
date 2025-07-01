@@ -153,8 +153,15 @@ export default function PitMapCanvas({
         });
 
       if (pitElement) {
+        // Clear any existing team assignment from other pits first
+        const clearedElements = canvasData.elements.map(element => 
+          element.type === 'pit' && element.teamNumber === teamData.teamNumber
+            ? { ...element, teamNumber: undefined }
+            : element
+        );
+        
         // Update the pit element with team assignment
-        const updatedElements = canvasData.elements.map(element => 
+        const updatedElements = clearedElements.map(element => 
           element.id === pitElement.id 
             ? { ...element, teamNumber: teamData.teamNumber }
             : element

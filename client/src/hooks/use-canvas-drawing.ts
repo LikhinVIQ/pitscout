@@ -106,12 +106,13 @@ export function useCanvasDrawing({
           // Draw team number if assigned
           if (element.teamNumber) {
             ctx.fillStyle = element.color;
-            ctx.font = '14px Arial';
+            ctx.font = 'bold 12px Arial';
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             ctx.fillText(
               `Team ${element.teamNumber}`,
-              element.startX + element.width / 2,
-              element.startY + element.height / 2
+              element.startX + (element.width || 50) / 2,
+              element.startY + (element.height || 50) / 2
             );
           }
         }
@@ -268,8 +269,14 @@ export function useCanvasDrawing({
               endY: (element.endY || element.startY) + deltaY,
             };
           } else {
-            // Handle pit, text, and other elements
-            return { ...element, startX: newX, startY: newY };
+            // Handle pit, text, and other elements - preserve ALL properties including teamNumber
+            return { 
+              ...element, 
+              startX: newX, 
+              startY: newY,
+              // Explicitly preserve teamNumber to ensure it doesn't get lost
+              teamNumber: element.teamNumber
+            };
           }
         }
         return element;
