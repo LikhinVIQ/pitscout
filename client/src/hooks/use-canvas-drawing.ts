@@ -110,7 +110,7 @@ export function useCanvasDrawing({
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(
-              `Team ${element.teamNumber}`,
+              `${element.teamNumber}`,
               element.startX + (element.width || 50) / 2,
               element.startY + (element.height || 50) / 2
             );
