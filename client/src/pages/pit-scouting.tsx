@@ -36,9 +36,18 @@ export default function PitScouting() {
     }
   }, [selectedPitMap]);
 
-  const handlePitClick = (pitId: string, teamNumber: number) => {
-    setSelectedPit({ id: pitId, teamNumber });
-    setShowStatusDialog(true);
+  const handlePitClick = (pitId: string, teamNumber: number, newStatus?: 'done' | 'absent') => {
+    if (newStatus) {
+      // Direct status change from hold-and-drag gesture
+      setPitStatuses(prev => ({
+        ...prev,
+        [pitId]: newStatus
+      }));
+    } else {
+      // Fallback to dialog for simple clicks
+      setSelectedPit({ id: pitId, teamNumber });
+      setShowStatusDialog(true);
+    }
   };
 
   const handleStatusChange = (status: 'done' | 'absent') => {

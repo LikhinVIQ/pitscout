@@ -1,11 +1,28 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import type { CanvasData } from "@shared/schema";
 
 interface PitScoutingCanvasProps {
   canvasData: CanvasData;
   pitStatuses: Record<string, 'not-visited' | 'done' | 'absent'>;
-  onPitClick: (pitId: string, teamNumber: number) => void;
+  onPitClick: (pitId: string, teamNumber: number, newStatus?: 'done' | 'absent') => void;
   getStatusColor: (status: 'not-visited' | 'done' | 'absent') => string;
+}
+
+interface StatusCircle {
+  x: number;
+  y: number;
+  radius: number;
+  status: 'done' | 'absent' | 'cancel';
+  color: string;
+  label: string;
+}
+
+interface HoldState {
+  isHolding: boolean;
+  pitId: string | null;
+  teamNumber: number | null;
+  startTime: number;
+  circles: StatusCircle[];
 }
 
 export default function PitScoutingCanvas({ 
@@ -16,6 +33,15 @@ export default function PitScoutingCanvas({
 }: PitScoutingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const holdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const [holdState, setHoldState] = useState<HoldState>({
+    isHolding: false,
+    pitId: null,
+    teamNumber: null,
+    startTime: 0,
+    circles: []
+  });
 
   const getCanvasCoordinates = useCallback((event: MouseEvent, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
@@ -27,6 +53,134 @@ export default function PitScoutingCanvas({
       y: (event.clientY - rect.top) * scaleY,
     };
   }, []);
+
+  const createStatusCircles = useCallback((pitX: number, pitY: number): StatusCircle[] => {
+    const circleRadius = 20;
+    const spacing = 60;
+    const centerX = pitX + 25; // Center of pit
+    const centerY = pitY - 50; // Above the pit
+    
+    return [
+      {
+        x: centerX - spacing,
+        y: centerY,
+        radius: circleRadius,
+        status: 'done',
+        color: '#22c55e', // Green
+        label: '✓'
+      },
+      {
+        x: centerX,
+        y: centerY,
+        radius: circleRadius,
+        status: 'absent',
+        color: '#f59e0b', // Yellow/Orange
+        label: '?'
+      },
+      {
+        x: centerX + spacing,
+        y: centerY,
+        radius: circleRadius,
+        status: 'cancel',
+        color: '#ef4444', // Red
+        label: '✕'
+      }
+    ];
+  }, []);
+
+  const isPointInCircle = useCallback((x: number, y: number, circle: StatusCircle): boolean => {
+    const distance = Math.sqrt((x - circle.x) ** 2 + (y - circle.y) ** 2);
+    return distance <= circle.radius;
+  }, []);
+
+  const handleMouseDown = useCallback((event: MouseEvent) => {
+    const canvas = event.target as HTMLCanvasElement;
+    if (!canvas) return;
+
+    const coords = getCanvasCoordinates(event, canvas);
+    
+    // Check if clicked on a pit
+    const clickedPit = canvasData.elements.find(element => {
+      if (element.type === 'pit' && element.width && element.height && element.teamNumber) {
+        return coords.x >= element.startX &&
+               coords.x <= element.startX + element.width &&
+               coords.y >= element.startY &&
+               coords.y <= element.startY + element.height;
+      }
+      return false;
+    });
+
+    if (clickedPit && clickedPit.teamNumber) {
+      // Start hold timer
+      holdTimeoutRef.current = setTimeout(() => {
+        const circles = createStatusCircles(clickedPit.startX, clickedPit.startY);
+        setHoldState({
+          isHolding: true,
+          pitId: clickedPit.id,
+          teamNumber: clickedPit.teamNumber!,
+          startTime: Date.now(),
+          circles
+        });
+        redrawCanvas();
+      }, 500); // 500ms hold delay
+    }
+  }, [canvasData.elements, getCanvasCoordinates, createStatusCircles]);
+
+  const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!holdState.isHolding) return;
+    
+    const canvas = event.target as HTMLCanvasElement;
+    if (!canvas) return;
+
+    const coords = getCanvasCoordinates(event, canvas);
+    
+    // Check if mouse is over any status circle
+    const hoveredCircle = holdState.circles.find(circle => 
+      isPointInCircle(coords.x, coords.y, circle)
+    );
+    
+    // Update visual feedback for hovered circle
+    redrawCanvas();
+  }, [holdState, getCanvasCoordinates, isPointInCircle]);
+
+  const handleMouseUp = useCallback((event: MouseEvent) => {
+    // Clear hold timer if still pending
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
+
+    if (holdState.isHolding) {
+      const canvas = event.target as HTMLCanvasElement;
+      if (!canvas) return;
+
+      const coords = getCanvasCoordinates(event, canvas);
+      
+      // Check if released over a status circle
+      const selectedCircle = holdState.circles.find(circle => 
+        isPointInCircle(coords.x, coords.y, circle)
+      );
+
+      if (selectedCircle && holdState.pitId && holdState.teamNumber) {
+        if (selectedCircle.status === 'done') {
+          onPitClick(holdState.pitId, holdState.teamNumber, 'done');
+        } else if (selectedCircle.status === 'absent') {
+          onPitClick(holdState.pitId, holdState.teamNumber, 'absent');
+        }
+        // Cancel does nothing - just dismisses the circles
+      }
+
+      // Reset hold state
+      setHoldState({
+        isHolding: false,
+        pitId: null,
+        teamNumber: null,
+        startTime: 0,
+        circles: []
+      });
+      redrawCanvas();
+    }
+  }, [holdState, getCanvasCoordinates, isPointInCircle, onPitClick]);
 
   const drawGrid = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
     const gridSize = 20;
@@ -129,8 +283,31 @@ export default function PitScoutingCanvas({
       drawElement(ctx, element);
     });
 
+    // Draw status circles if in hold state
+    if (holdState.isHolding) {
+      holdState.circles.forEach(circle => {
+        // Draw circle background
+        ctx.fillStyle = circle.color;
+        ctx.beginPath();
+        ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Draw circle border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw label
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(circle.label, circle.x, circle.y);
+      });
+    }
+
     ctx.restore();
-  }, [canvasData, pitStatuses, getStatusColor]);
+  }, [canvasData, pitStatuses, getStatusColor, holdState]);
 
   // Resize canvas when container size changes
   const resizeCanvas = useCallback(() => {
@@ -164,30 +341,45 @@ export default function PitScoutingCanvas({
     redrawCanvas();
   }, [canvasData, pitStatuses, redrawCanvas]);
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Set up event listeners
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const coords = getCanvasCoordinates(e.nativeEvent, canvas);
-    
-    // Find clicked pit element
-    const clickedElement = canvasData.elements
-      .slice()
-      .reverse() // Check from top to bottom
-      .find(element => {
-        if (element.type !== 'pit' || !element.teamNumber) return false;
-        return (
-          coords.x >= element.startX &&
-          coords.x <= element.startX + (element.width || 0) &&
-          coords.y >= element.startY &&
-          coords.y <= element.startY + (element.height || 0)
-        );
-      });
+    // Convert React events to native events for consistency
+    const handleCanvasMouseDown = (e: Event) => handleMouseDown(e as MouseEvent);
+    const handleCanvasMouseMove = (e: Event) => handleMouseMove(e as MouseEvent);
+    const handleCanvasMouseUp = (e: Event) => handleMouseUp(e as MouseEvent);
 
-    if (clickedElement && clickedElement.teamNumber) {
-      onPitClick(clickedElement.id, clickedElement.teamNumber);
-    }
-  };
+    canvas.addEventListener('mousedown', handleCanvasMouseDown);
+    canvas.addEventListener('mousemove', handleCanvasMouseMove);
+    canvas.addEventListener('mouseup', handleCanvasMouseUp);
+    
+    // Also handle mouse leave to cancel hold state
+    const handleMouseLeave = () => {
+      if (holdTimeoutRef.current) {
+        clearTimeout(holdTimeoutRef.current);
+        holdTimeoutRef.current = null;
+      }
+      setHoldState({
+        isHolding: false,
+        pitId: null,
+        teamNumber: null,
+        startTime: 0,
+        circles: []
+      });
+      redrawCanvas();
+    };
+    
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleCanvasMouseDown);
+      canvas.removeEventListener('mousemove', handleCanvasMouseMove);
+      canvas.removeEventListener('mouseup', handleCanvasMouseUp);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [handleMouseDown, handleMouseMove, handleMouseUp, redrawCanvas]);
 
   return (
     <div 
@@ -198,7 +390,6 @@ export default function PitScoutingCanvas({
       <canvas
         ref={canvasRef}
         className="absolute top-0 left-0 w-full h-full cursor-pointer"
-        onClick={handleCanvasClick}
       />
     </div>
   );
