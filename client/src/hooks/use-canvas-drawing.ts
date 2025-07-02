@@ -183,26 +183,18 @@ export function useCanvasDrawing({
         break;
         
       case 'pit':
-        // Create a 10x10 pit square immediately
-        const pitElement: DrawingElement = {
+        // Start creating a pit element for drag-and-drop
+        currentElement.current = {
           id: generateId(),
           type: 'pit',
-          startX: coords.x - 25, // Center the pit on click
+          startX: coords.x - 25, // Center the pit on initial click
           startY: coords.y - 25,
           width: 50,
           height: 50,
           color: '#1976D2',
           strokeWidth: 2,
         };
-        
-        onCanvasDataChange({
-          ...canvasData,
-          elements: [...canvasData.elements, pitElement],
-        });
-        
-        // Don't set currentElement since pit is created immediately
-        isDrawing.current = false;
-        return;
+        break;
         
       case 'text':
         const text = prompt('Enter text:');
@@ -311,18 +303,11 @@ export function useCanvasDrawing({
         break;
         
       case 'pit':
-        const width = coords.x - currentElement.current.startX;
-        const height = coords.y - currentElement.current.startY;
-        currentElement.current.width = Math.abs(width);
-        currentElement.current.height = Math.abs(height);
-        
-        // Adjust start position if drawing backwards
-        if (width < 0) {
-          currentElement.current.startX = coords.x;
-        }
-        if (height < 0) {
-          currentElement.current.startY = coords.y;
-        }
+        // For pit tool, maintain fixed 50x50 size and just update position
+        currentElement.current.startX = coords.x - 25; // Center the pit on cursor
+        currentElement.current.startY = coords.y - 25;
+        currentElement.current.width = 50;
+        currentElement.current.height = 50;
         break;
     }
 
