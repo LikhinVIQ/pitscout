@@ -15,6 +15,9 @@ interface StatusCircle {
   status: 'done' | 'absent' | 'cancel';
   color: string;
   label: string;
+  scale: number;
+  opacity: number;
+  isHovered: boolean;
 }
 
 interface HoldState {
@@ -25,6 +28,7 @@ interface HoldState {
   mouseX: number;
   mouseY: number;
   circles: StatusCircle[];
+  isFadingOut: boolean;
 }
 
 export default function PitScoutingCanvas({ 
@@ -36,6 +40,7 @@ export default function PitScoutingCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const holdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   
   const [holdState, setHoldState] = useState<HoldState>({
     isHolding: false,
@@ -44,7 +49,8 @@ export default function PitScoutingCanvas({
     startTime: 0,
     mouseX: 0,
     mouseY: 0,
-    circles: []
+    circles: [],
+    isFadingOut: false
   });
 
   const getCanvasCoordinates = useCallback((event: MouseEvent, canvas: HTMLCanvasElement) => {
@@ -74,7 +80,10 @@ export default function PitScoutingCanvas({
         radius: circleRadius,
         status: 'done',
         color: '#22c55e', // Green
-        label: '✓'
+        label: '✓',
+        scale: 1.0,
+        opacity: 1.0,
+        isHovered: false
       },
       {
         x: mouseX + Math.cos(angle2) * distance,
@@ -82,7 +91,10 @@ export default function PitScoutingCanvas({
         radius: circleRadius,
         status: 'absent',
         color: '#f59e0b', // Yellow/Orange
-        label: '?'
+        label: '?',
+        scale: 1.0,
+        opacity: 1.0,
+        isHovered: false
       },
       {
         x: mouseX + Math.cos(angle3) * distance,
@@ -90,7 +102,10 @@ export default function PitScoutingCanvas({
         radius: circleRadius,
         status: 'cancel',
         color: '#ef4444', // Red
-        label: '✕'
+        label: '✕',
+        scale: 1.0,
+        opacity: 1.0,
+        isHovered: false
       }
     ];
   }, []);
@@ -128,7 +143,8 @@ export default function PitScoutingCanvas({
           startTime: Date.now(),
           mouseX: coords.x,
           mouseY: coords.y,
-          circles
+          circles,
+          isFadingOut: false
         });
         redrawCanvas();
       }, 200); // 200ms hold delay (much faster)
@@ -143,13 +159,50 @@ export default function PitScoutingCanvas({
 
     const coords = getCanvasCoordinates(event, canvas);
     
-    // Check if mouse is over any status circle
-    const hoveredCircle = holdState.circles.find(circle => 
-      isPointInCircle(coords.x, coords.y, circle)
-    );
-    
-    // Update visual feedback for hovered circle
-    redrawCanvas();
+    // Check for hover over status circles and update hover state
+    let hasHoverChange = false;
+    const updatedCircles = holdState.circles.map(circle => {
+      const isHovered = isPointInCircle(coords.x, coords.y, circle);
+      if (isHovered !== circle.isHovered) {
+        hasHoverChange = true;
+        return { ...circle, isHovered };
+      }
+      return circle;
+    });
+
+    if (hasHoverChange) {
+      setHoldState(prev => ({ ...prev, circles: updatedCircles }));
+      
+      // Start smooth scale animation
+      const startTime = Date.now();
+      const animationDuration = 150; // 150ms for smooth hover effect
+      
+      const animateScale = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / animationDuration, 1);
+        
+        setHoldState(prev => ({
+          ...prev,
+          circles: prev.circles.map(circle => {
+            const targetScale = circle.isHovered ? 1.1 : 1.0;
+            const currentScale = circle.scale;
+            const newScale = currentScale + (targetScale - currentScale) * progress * 0.3;
+            return { ...circle, scale: newScale };
+          })
+        }));
+        
+        redrawCanvas();
+        
+        if (progress < 1) {
+          animationFrameRef.current = requestAnimationFrame(animateScale);
+        }
+      };
+      
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      animationFrameRef.current = requestAnimationFrame(animateScale);
+    }
   }, [holdState, getCanvasCoordinates, isPointInCircle]);
 
   const handleMouseUp = useCallback((event: MouseEvent) => {
@@ -179,17 +232,42 @@ export default function PitScoutingCanvas({
         // Cancel does nothing - just dismisses the circles
       }
 
-      // Reset hold state
-      setHoldState({
-        isHolding: false,
-        pitId: null,
-        teamNumber: null,
-        startTime: 0,
-        mouseX: 0,
-        mouseY: 0,
-        circles: []
-      });
-      redrawCanvas();
+      // Start fade-out animation
+      setHoldState(prev => ({ ...prev, isFadingOut: true }));
+      
+      // Fade out animation
+      const startTime = Date.now();
+      const fadeOutDuration = 300; // 300ms fade out
+      
+      const animateFadeOut = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / fadeOutDuration, 1);
+        const opacity = 1 - progress;
+        
+        if (progress < 1) {
+          setHoldState(prev => ({
+            ...prev,
+            circles: prev.circles.map(circle => ({ ...circle, opacity }))
+          }));
+          redrawCanvas();
+          requestAnimationFrame(animateFadeOut);
+        } else {
+          // Animation complete - reset hold state
+          setHoldState({
+            isHolding: false,
+            pitId: null,
+            teamNumber: null,
+            startTime: 0,
+            mouseX: 0,
+            mouseY: 0,
+            circles: [],
+            isFadingOut: false
+          });
+          redrawCanvas();
+        }
+      };
+      
+      animateFadeOut();
     }
   }, [holdState, getCanvasCoordinates, isPointInCircle, onPitClick]);
 
@@ -295,25 +373,41 @@ export default function PitScoutingCanvas({
     });
 
     // Draw status circles if in hold state
-    if (holdState.isHolding) {
+    if (holdState.isHolding || holdState.isFadingOut) {
       holdState.circles.forEach(circle => {
+        ctx.save();
+        
+        // Apply opacity for fade-out effect
+        ctx.globalAlpha = circle.opacity;
+        
+        // Apply animated scale effect
+        const effectiveScale = circle.scale;
+        
+        if (effectiveScale !== 1.0) {
+          ctx.translate(circle.x, circle.y);
+          ctx.scale(effectiveScale, effectiveScale);
+          ctx.translate(-circle.x, -circle.y);
+        }
+        
         // Draw circle background
         ctx.fillStyle = circle.color;
         ctx.beginPath();
         ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Draw circle border
+        // Draw circle border - make it thicker when hovered
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = circle.isHovered ? 3 : 2;
         ctx.stroke();
         
         // Draw label
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px Arial';
+        ctx.font = `bold ${circle.isHovered ? 18 : 16}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(circle.label, circle.x, circle.y);
+        
+        ctx.restore();
       });
     }
 
@@ -379,7 +473,8 @@ export default function PitScoutingCanvas({
         startTime: 0,
         mouseX: 0,
         mouseY: 0,
-        circles: []
+        circles: [],
+        isFadingOut: false
       });
       redrawCanvas();
     };
@@ -391,6 +486,18 @@ export default function PitScoutingCanvas({
       canvas.removeEventListener('mousemove', handleCanvasMouseMove);
       canvas.removeEventListener('mouseup', handleCanvasMouseUp);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
+      
+      // Clear any pending hold timeout
+      if (holdTimeoutRef.current) {
+        clearTimeout(holdTimeoutRef.current);
+        holdTimeoutRef.current = null;
+      }
+      
+      // Cancel any pending animation frame
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
     };
   }, [handleMouseDown, handleMouseMove, handleMouseUp, redrawCanvas]);
 
