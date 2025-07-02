@@ -106,7 +106,8 @@ export function useCanvasDrawing({
           // Draw team number if assigned
           if (element.teamNumber) {
             ctx.fillStyle = element.color;
-            ctx.font = 'bold 12px Arial';
+            // Use smaller font size to fit better in mobile pit boxes
+            ctx.font = 'bold 10px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(
