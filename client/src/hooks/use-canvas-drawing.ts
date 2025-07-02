@@ -31,6 +31,48 @@ export function useCanvasDrawing({
     };
   }, []);
 
+  // Snapping helper functions
+  const snapToNearbyElements = useCallback((x: number, y: number, currentElementId?: string) => {
+    const snapDistance = 10; // pixels
+    let snappedX = x;
+    let snappedY = y;
+
+    // Snap to existing pits and lines
+    canvasData.elements.forEach(element => {
+      if (element.id === currentElementId) return; // Don't snap to self
+
+      if (element.type === 'pit' && element.width && element.height) {
+        // Snap to pit edges for perfect grid alignment
+        const pitLeft = element.startX;
+        const pitRight = element.startX + element.width;
+        const pitTop = element.startY;
+        const pitBottom = element.startY + element.height;
+
+        // Horizontal snapping
+        if (Math.abs(x - pitLeft) < snapDistance) snappedX = pitLeft;
+        if (Math.abs(x - pitRight) < snapDistance) snappedX = pitRight;
+        if (Math.abs(x + 50 - pitLeft) < snapDistance) snappedX = pitLeft - 50; // Snap right edge to left edge
+        if (Math.abs(x - pitRight) < snapDistance) snappedX = pitRight; // Snap left edge to right edge
+
+        // Vertical snapping
+        if (Math.abs(y - pitTop) < snapDistance) snappedY = pitTop;
+        if (Math.abs(y - pitBottom) < snapDistance) snappedY = pitBottom;
+        if (Math.abs(y + 50 - pitTop) < snapDistance) snappedY = pitTop - 50; // Snap bottom edge to top edge
+        if (Math.abs(y - pitBottom) < snapDistance) snappedY = pitBottom; // Snap top edge to bottom edge
+      }
+
+      if (element.type === 'line') {
+        // Snap to line coordinates
+        if (Math.abs(x - element.startX) < snapDistance) snappedX = element.startX;
+        if (Math.abs(y - element.startY) < snapDistance) snappedY = element.startY;
+        if (element.endX !== undefined && Math.abs(x - element.endX) < snapDistance) snappedX = element.endX;
+        if (element.endY !== undefined && Math.abs(y - element.endY) < snapDistance) snappedY = element.endY;
+      }
+    });
+
+    return { x: snappedX, y: snappedY };
+  }, [canvasData.elements]);
+
   const redrawCanvas = useCallback(() => {
     const canvas = document.querySelector('canvas') as HTMLCanvasElement;
     if (!canvas) return;
@@ -97,11 +139,14 @@ export function useCanvasDrawing({
         
       case 'pit':
         if (element.width && element.height) {
-          ctx.strokeRect(element.startX, element.startY, element.width, element.height);
-          
-          // Fill with semi-transparent color
-          ctx.fillStyle = element.color + '20';
+          // Fill with translucent background
+          ctx.fillStyle = element.color + '30';
           ctx.fillRect(element.startX, element.startY, element.width, element.height);
+          
+          // Draw solid border
+          ctx.strokeStyle = element.color;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(element.startX, element.startY, element.width, element.height);
           
           // Draw team number if assigned
           if (element.teamNumber) {
@@ -244,8 +289,15 @@ export function useCanvasDrawing({
     
     // Handle dragging elements
     if (isDragging.current && dragElement.current && dragOffset.current) {
-      const newX = coords.x - dragOffset.current.x;
-      const newY = coords.y - dragOffset.current.y;
+      let newX = coords.x - dragOffset.current.x;
+      let newY = coords.y - dragOffset.current.y;
+      
+      // Apply snapping for pits during drag
+      if (dragElement.current.type === 'pit') {
+        const snappedPos = snapToNearbyElements(newX, newY, dragElement.current.id);
+        newX = snappedPos.x;
+        newY = snappedPos.y;
+      }
       
       const updatedElements = canvasData.elements.map(element => {
         if (element.id === dragElement.current!.id) {
@@ -303,9 +355,13 @@ export function useCanvasDrawing({
         break;
         
       case 'pit':
-        // For pit tool, maintain fixed 50x50 size and just update position
-        currentElement.current.startX = coords.x - 25; // Center the pit on cursor
-        currentElement.current.startY = coords.y - 25;
+        // For pit tool, maintain fixed 50x50 size and apply snapping
+        const pitX = coords.x - 25; // Center the pit on cursor
+        const pitY = coords.y - 25;
+        const snappedPos = snapToNearbyElements(pitX, pitY, currentElement.current.id);
+        
+        currentElement.current.startX = snappedPos.x;
+        currentElement.current.startY = snappedPos.y;
         currentElement.current.width = 50;
         currentElement.current.height = 50;
         break;
