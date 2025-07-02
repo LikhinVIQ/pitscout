@@ -22,6 +22,8 @@ interface HoldState {
   pitId: string | null;
   teamNumber: number | null;
   startTime: number;
+  mouseX: number;
+  mouseY: number;
   circles: StatusCircle[];
 }
 
@@ -40,6 +42,8 @@ export default function PitScoutingCanvas({
     pitId: null,
     teamNumber: null,
     startTime: 0,
+    mouseX: 0,
+    mouseY: 0,
     circles: []
   });
 
@@ -54,32 +58,35 @@ export default function PitScoutingCanvas({
     };
   }, []);
 
-  const createStatusCircles = useCallback((pitX: number, pitY: number): StatusCircle[] => {
-    const circleRadius = 20;
-    const spacing = 60;
-    const centerX = pitX + 25; // Center of pit
-    const centerY = pitY - 50; // Above the pit
+  const createStatusCircles = useCallback((mouseX: number, mouseY: number): StatusCircle[] => {
+    const circleRadius = 25;
+    const distance = 50; // Distance from mouse cursor
+    
+    // Calculate triangle positions around mouse cursor
+    const angle1 = -Math.PI / 2; // Top (90 degrees up)
+    const angle2 = Math.PI / 6; // Bottom right (30 degrees)
+    const angle3 = (5 * Math.PI) / 6; // Bottom left (150 degrees)
     
     return [
       {
-        x: centerX - spacing,
-        y: centerY,
+        x: mouseX + Math.cos(angle1) * distance,
+        y: mouseY + Math.sin(angle1) * distance,
         radius: circleRadius,
         status: 'done',
         color: '#22c55e', // Green
         label: '✓'
       },
       {
-        x: centerX,
-        y: centerY,
+        x: mouseX + Math.cos(angle2) * distance,
+        y: mouseY + Math.sin(angle2) * distance,
         radius: circleRadius,
         status: 'absent',
         color: '#f59e0b', // Yellow/Orange
         label: '?'
       },
       {
-        x: centerX + spacing,
-        y: centerY,
+        x: mouseX + Math.cos(angle3) * distance,
+        y: mouseY + Math.sin(angle3) * distance,
         radius: circleRadius,
         status: 'cancel',
         color: '#ef4444', // Red
@@ -113,16 +120,18 @@ export default function PitScoutingCanvas({
     if (clickedPit && clickedPit.teamNumber) {
       // Start hold timer
       holdTimeoutRef.current = setTimeout(() => {
-        const circles = createStatusCircles(clickedPit.startX, clickedPit.startY);
+        const circles = createStatusCircles(coords.x, coords.y);
         setHoldState({
           isHolding: true,
           pitId: clickedPit.id,
           teamNumber: clickedPit.teamNumber!,
           startTime: Date.now(),
+          mouseX: coords.x,
+          mouseY: coords.y,
           circles
         });
         redrawCanvas();
-      }, 500); // 500ms hold delay
+      }, 200); // 200ms hold delay (much faster)
     }
   }, [canvasData.elements, getCanvasCoordinates, createStatusCircles]);
 
@@ -176,6 +185,8 @@ export default function PitScoutingCanvas({
         pitId: null,
         teamNumber: null,
         startTime: 0,
+        mouseX: 0,
+        mouseY: 0,
         circles: []
       });
       redrawCanvas();
@@ -366,6 +377,8 @@ export default function PitScoutingCanvas({
         pitId: null,
         teamNumber: null,
         startTime: 0,
+        mouseX: 0,
+        mouseY: 0,
         circles: []
       });
       redrawCanvas();
