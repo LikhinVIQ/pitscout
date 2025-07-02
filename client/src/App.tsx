@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import Competitions from "@/pages/competitions";
 import PitMap from "@/pages/pit-map";
 import SavedMaps from "@/pages/saved-maps";
+import PitScouting from "@/pages/pit-scouting";
 import MobileNav from "@/components/mobile-nav";
 import { Bot } from "lucide-react";
 
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/competitions" component={Competitions} />
       <Route path="/pit-map/:competitionKey?" component={PitMap} />
       <Route path="/saved-maps" component={SavedMaps} />
+      <Route path="/pit-scouting" component={PitScouting} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -49,6 +49,13 @@ This is a full-stack web application for creating and managing FRC (First Roboti
 - **Eraser Tool**: Remove elements from the canvas
 - **Zoom/Pan**: Canvas manipulation for detailed editing
 
+### Pit Scouting System
+- **Read-only View**: Non-editable canvas for tracking during events
+- **Color-coded Status**: Red (not visited), Green (done), Yellow (absent)
+- **Interactive Clicking**: Click on pits to update team status
+- **Progress Tracking**: Real-time statistics of scouting progress
+- **Status Dialog**: Simple popup interface for quick status updates
+
 ## Data Flow
 
 1. **Competition Search**: User searches by year → TBA API fetch → Cache in memory storage → Display results
@@ -94,6 +101,7 @@ This is a full-stack web application for creating and managing FRC (First Roboti
 
 Changelog:
 - July 01, 2025. Initial setup
+- July 02, 2025. Added pit scouting feature with color-coded status tracking
 
 ## User Preferences
 

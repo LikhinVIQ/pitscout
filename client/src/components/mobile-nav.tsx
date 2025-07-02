@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Search, Calendar, Map, Bookmark, Plus } from "lucide-react";
+import { Search, Calendar, Map, Bookmark, Plus, CheckSquare } from "lucide-react";
 
 export default function MobileNav() {
   const [location, setLocation] = useLocation();
@@ -8,8 +8,8 @@ export default function MobileNav() {
   const navItems = [
     { path: "/", icon: Search, label: "Search" },
     { path: "/competitions", icon: Calendar, label: "Events" },
-    { path: "/pit-map", icon: Map, label: "Pit Map" },
     { path: "/saved-maps", icon: Bookmark, label: "Saved" },
+    { path: "/pit-scouting", icon: CheckSquare, label: "Scout" },
   ];
 
   const isActive = (path: string) => {

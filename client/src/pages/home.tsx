@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import CompetitionSearch from "@/components/competition-search";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Map, Search, Bookmark } from "lucide-react";
+import { Calendar, Map, Search, Bookmark, CheckSquare } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -19,6 +19,12 @@ export default function Home() {
       title: "Create Pit Maps",
       description: "Design custom pit maps with drawing tools for better event organization",
       action: () => setLocation("/pit-map"),
+    },
+    {
+      icon: CheckSquare,
+      title: "Pit Scouting",
+      description: "Track team visits with color-coded status during competitions",
+      action: () => setLocation("/pit-scouting"),
     },
     {
       icon: Bookmark,
