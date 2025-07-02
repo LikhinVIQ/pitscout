@@ -96,6 +96,11 @@ export function useCanvasDrawing({
       drawElement(ctx, element);
     });
 
+    // Draw current element being drawn as preview
+    if (isDrawing.current && currentElement.current) {
+      drawElement(ctx, currentElement.current);
+    }
+
     ctx.restore();
   }, [canvasData]);
 
@@ -145,8 +150,6 @@ export function useCanvasDrawing({
           ctx.fillStyle = element.color;
           ctx.fillRect(element.startX, element.startY, element.width, element.height);
           ctx.restore();
-          
-          console.log('Drawing pit with translucent fill:', element.color, 'at', element.startX, element.startY);
           
           // Draw solid border
           ctx.strokeStyle = element.color;
@@ -372,12 +375,8 @@ export function useCanvasDrawing({
         break;
     }
 
-    // Update canvas with current element
-    const tempElements = [...canvasData.elements, currentElement.current];
-    onCanvasDataChange({
-      ...canvasData,
-      elements: tempElements,
-    });
+    // Instead of adding to canvas data, trigger a redraw with preview
+    redrawCanvas();
   }, [isDrawing, selectedTool, canvasData, onCanvasDataChange, getCanvasCoordinates]);
 
   const handleMouseUp = useCallback(() => {
