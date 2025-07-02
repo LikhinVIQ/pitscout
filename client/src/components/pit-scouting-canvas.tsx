@@ -74,8 +74,11 @@ export default function PitScoutingCanvas({
           ctx.strokeRect(element.startX, element.startY, element.width, element.height);
           
           // Fill with status color (semi-transparent)
-          ctx.fillStyle = statusColor + '40';
+          ctx.save();
+          ctx.globalAlpha = 0.4; // 40% opacity
+          ctx.fillStyle = statusColor;
           ctx.fillRect(element.startX, element.startY, element.width, element.height);
+          ctx.restore();
           
           // Draw team number if assigned
           if (element.teamNumber) {

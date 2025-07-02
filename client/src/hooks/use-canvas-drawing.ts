@@ -139,9 +139,12 @@ export function useCanvasDrawing({
         
       case 'pit':
         if (element.width && element.height) {
-          // Fill with translucent background
-          ctx.fillStyle = element.color + '30';
+          // Fill with translucent background using globalAlpha
+          ctx.save();
+          ctx.globalAlpha = 0.3; // 30% opacity
+          ctx.fillStyle = element.color;
           ctx.fillRect(element.startX, element.startY, element.width, element.height);
+          ctx.restore();
           
           // Draw solid border
           ctx.strokeStyle = element.color;
